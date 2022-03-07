@@ -1,42 +1,102 @@
 import * as THREE from 'three'
-import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { GUI } from 'dat.gui'
+import { uniforms } from './src/uniforms';
+import { shaderMaterial } from './src/material';
 
-let camera, scene, renderer;
-let geometry, material, mesh;
+const camera = new THREE.PerspectiveCamera( 100, window.innerWidth / window.innerHeight, 0.1, 20 );
 
-init();
+// side
+camera.position.set(10, 0, 0);
+camera.lookAt(new THREE.Vector3(0,0,1))
 
-function init() {
+// down
+camera.position.set(0, 10, 0);
+camera.lookAt(new THREE.Vector3(0,0,1))
 
-	camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.01, 10 );
-	camera.position.z = 1;
+// up
+camera.position.set(0, -5, 0);
+camera.lookAt(new THREE.Vector3(0,1,0))
 
-	scene = new THREE.Scene();
 
-	geometry = new THREE.BoxGeometry( 0.2, 0.2, 0.2 );
-	material = new THREE.MeshNormalMaterial();
 
-	mesh = new THREE.Mesh( geometry, material );
-	scene.add( mesh );
+// camera.lookAt(new THREE.Vector3(0,1,0)) // from up
+// camera.lookAt(new THREE.Vector3(0,-1,0)) // from up
 
-	renderer = new THREE.WebGLRenderer( { antialias: true } );
-	renderer.setSize( window.innerWidth, window.innerHeight );
-	renderer.setAnimationLoop( animation );
-	document.body.appendChild( renderer.domElement );
-
-  const controls =  new OrbitControls(camera, renderer.domElement)
-  scene.add(controls)
+function addMesh(geometry, material) {
+  const mesh = new THREE.Mesh(geometry, material);
+  scene.add(mesh);
+  return mesh;
 }
+
+let clock = new THREE.Clock();
+const scene = new THREE.Scene();
+const renderer = new THREE.WebGLRenderer( { antialias: true } );
+renderer.setSize( window.innerWidth, window.innerHeight );
+renderer.setAnimationLoop( animation );
+document.body.appendChild( renderer.domElement );
+
+const geometry = new THREE.BoxGeometry(3,3,1 );
+const material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
+const controls = new OrbitControls(camera, renderer.domElement);
+
+const gridHelper = new THREE.GridHelper( 20, 20 );
+scene.add( gridHelper );
+
+let a = addMesh(geometry, material)
+a.position.set(0,3,0)
+
+
+
+const plane = new THREE.BoxGeometry(40,40,1);
+const planeMesh = addMesh(plane, shaderMaterial)
+planeMesh.rotation.x = Math.PI/2
+planeMesh.position.set(0,10,0)
+
+
+
+
+const gui = new GUI();
+const cubeFolder = gui.addFolder('Cube')
+cubeFolder.add(a.position, 'x',   -10, 10)
+cubeFolder.add(a.position, 'y', -10, 10)
+cubeFolder.add(a.position, 'z', -10, 10)
+cubeFolder.open()
+const cameraFolder = gui.addFolder('Camera')
+cameraFolder.add(camera.position, 'x', 0, 10)
+cameraFolder.add(camera.position, 'y', 0, 10)
+cameraFolder.add(camera.position, 'z', 0, 10)
+
+cameraFolder.add({lookUp:function(){
+	camera.lookAt(new THREE.Vector3(0,1,0));
+	camera.position.set(0, -5, 0);
+	camera.updateProjectionMatrix()
+}}, 'lookUp')
+cameraFolder.add({lookDown:function(){
+	camera.lookAt(new THREE.Vector3(0,-1,0));
+	camera.position.set(0, 5, 0);
+	camera.updateProjectionMatrix()
+}}, 'lookDown')
+cameraFolder.add({lookSide:function(){
+	camera.lookAt(new THREE.Vector3(0,0,1));
+	camera.position.set(10, 0, 0);
+	camera.updateProjectionMatrix()
+}}, 'lookSide')
+
+
+// cameraFolder.add(lookSide, 'lookSide')
+
+cameraFolder.open()
+
+window.addEventListener('resize', () => {
+	camera.aspect = window.innerWidth / window.innerHeight;
+	camera.updateProjectionMatrix();
+	renderer.setSize( window.innerWidth, window.innerHeight );
+});
+
 
 function animation( time ) {
 
-	mesh.rotation.x = time / 2000;
-	mesh.rotation.y = time / 1000;
-
+	uniforms.u_time.value += clock.getDelta();
 	renderer.render( scene, camera );
-
 }
-
-// bash print sum of lenghts of mp4 in folder
-// find . -name "*.mp4" -type f -exec du -h {} \; | awk '{ sum += $1 } END { print sum }'
-
