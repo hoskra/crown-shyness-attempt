@@ -1,27 +1,11 @@
 import * as THREE from 'three'
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { GUI } from 'dat.gui'
 import { uniforms } from './src/uniforms';
 import { shaderMaterial } from './src/material';
-
-const camera = new THREE.PerspectiveCamera( 100, window.innerWidth / window.innerHeight, 0.1, 20 );
-
-// side
-camera.position.set(10, 0, 0);
-camera.lookAt(new THREE.Vector3(0,0,1))
-
-// down
-camera.position.set(0, 10, 0);
-camera.lookAt(new THREE.Vector3(0,0,1))
-
-// up
-camera.position.set(0, -5, 0);
-camera.lookAt(new THREE.Vector3(0,1,0))
-
-
-
-// camera.lookAt(new THREE.Vector3(0,1,0)) // from up
-// camera.lookAt(new THREE.Vector3(0,-1,0)) // from up
+import { Delaunay } from 'd3-delaunay'
+import { createGui } from './src/guiControls';
+import { setupScene } from './src/sceneSetup';
+import { planeSize } from './src/config';
+import { generatePoints } from './src/utils'
 
 function addMesh(geometry, material) {
   const mesh = new THREE.Mesh(geometry, material);
@@ -29,64 +13,79 @@ function addMesh(geometry, material) {
   return mesh;
 }
 
-let clock = new THREE.Clock();
-const scene = new THREE.Scene();
-const renderer = new THREE.WebGLRenderer( { antialias: true } );
-renderer.setSize( window.innerWidth, window.innerHeight );
-renderer.setAnimationLoop( animation );
-document.body.appendChild( renderer.domElement );
+const { camera, clock, scene, renderer } = setupScene(animation);
+const axesHelper = new THREE.AxesHelper( 5 );
+// The X axis is red. The Y axis is green. The Z axis is blue.
+scene.add( axesHelper );
 
 const geometry = new THREE.BoxGeometry(3,3,1 );
 const material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
-const controls = new OrbitControls(camera, renderer.domElement);
 
-const gridHelper = new THREE.GridHelper( 20, 20 );
-scene.add( gridHelper );
+// const plane = new THREE.BoxGeometry(planeSize,planeSize,1);
+// const planeMesh = addMesh(plane, shaderMaterial)
+// planeMesh.rotation.x = Math.PI/2
+// planeMesh.position.set(0,5,0)
 
-let a = addMesh(geometry, material)
-a.position.set(0,3,0)
+// createGui(a, camera);
 
+let points = generatePoints(4);
 
+// uniforms.u_points = { value: new Float32Array(points.map(d => d[0]).concat(points.map(d => d[1]))) };
+// console.log(points)
+// console.log(uniforms.u_points.value)
 
-const plane = new THREE.BoxGeometry(40,40,1);
-const planeMesh = addMesh(plane, shaderMaterial)
-planeMesh.rotation.x = Math.PI/2
-planeMesh.position.set(0,10,0)
+let circles=[]
+points.forEach(p => {
+	let c = addMesh(new THREE.BoxGeometry(0.4,0.4,0.4),material)
+	c.position.set(p[0],0,p[1]);
+	circles.push(c);
+});
 
+const delaunay = Delaunay.from(points);
+const voronoi = delaunay.voronoi([-planeSize/2, -planeSize/2, planeSize/2, planeSize/2])
 
+let polygonObjects = []
+for(let i=0;i<points.length;i++) {
+	// polygonObjects.push(voronoi.cellPolygon(i))
+	let group = [];
+	(voronoi.cellPolygon(i)).forEach(vertex => {
+		group.push(new THREE.Vector3(vertex[0], 0, vertex[1]));
+	});
+	let geom = new THREE.ShapeBufferGeometry(new THREE.Shape(group));
+	console.log(group)
+	polygonObjects.push(addMesh(geom, material));
+}
 
+console.log(polygonObjects)
+// polygonObjects.forEach(polygon => {
 
-const gui = new GUI();
-const cubeFolder = gui.addFolder('Cube')
-cubeFolder.add(a.position, 'x',   -10, 10)
-cubeFolder.add(a.position, 'y', -10, 10)
-cubeFolder.add(a.position, 'z', -10, 10)
-cubeFolder.open()
-const cameraFolder = gui.addFolder('Camera')
-cameraFolder.add(camera.position, 'x', 0, 10)
-cameraFolder.add(camera.position, 'y', 0, 10)
-cameraFolder.add(camera.position, 'z', 0, 10)
-
-cameraFolder.add({lookUp:function(){
-	camera.lookAt(new THREE.Vector3(0,1,0));
-	camera.position.set(0, -5, 0);
-	camera.updateProjectionMatrix()
-}}, 'lookUp')
-cameraFolder.add({lookDown:function(){
-	camera.lookAt(new THREE.Vector3(0,-1,0));
-	camera.position.set(0, 5, 0);
-	camera.updateProjectionMatrix()
-}}, 'lookDown')
-cameraFolder.add({lookSide:function(){
-	camera.lookAt(new THREE.Vector3(0,0,1));
-	camera.position.set(10, 0, 0);
-	camera.updateProjectionMatrix()
-}}, 'lookSide')
+// });
 
 
-// cameraFolder.add(lookSide, 'lookSide')
 
-cameraFolder.open()
+
+// for(i=0;i<p.length;i++) {
+// 	c1=p[i][0]
+// 	c2=p[i][1]
+// 	poin=[]
+// 	for (let vt of voronoi.cellPolygon(i)) {
+// 		// vertex(vt[0], vt[1]);
+// 		poin.push(middlePoint(c1,c2,vt[0],vt[1])[0], middlePoint(c1,c2,vt[0],vt[1])[1])
+// 		circle(m(c1,c2,vt[0],vt[1])[0], m(c1,c2,vt[0],vt[1])[1], 50)
+// 	}
+// 	polygonPoints.push(poin)
+// 	// endShape(CLOSE);
+// 	circle(c1, c2, 1)
+// }
+
+// for(i=0;i<polygonPoints.length;i++) {
+// 	for(j=0;j<polygonPoints[i].length;j+=2) {
+// 		vertex(polygonPoints[i][j], polygonPoints[i][j+1])
+// 	}
+// }
+
+
+document.body.appendChild( renderer.domElement );
 
 window.addEventListener('resize', () => {
 	camera.aspect = window.innerWidth / window.innerHeight;
@@ -96,7 +95,6 @@ window.addEventListener('resize', () => {
 
 
 function animation( time ) {
-
 	uniforms.u_time.value += clock.getDelta();
 	renderer.render( scene, camera );
 }
