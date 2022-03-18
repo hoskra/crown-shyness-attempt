@@ -1,11 +1,16 @@
 import * as THREE from 'three'
+import SimplexNoise from 'simplex-noise';
 import { uniforms } from './src/uniforms';
 import { shaderMaterial } from './src/material';
 import { Delaunay } from 'd3-delaunay'
 import { createGui } from './src/guiControls';
 import { setupScene } from './src/sceneSetup';
 import { planeSize } from './src/config';
-import { generatePoints } from './src/utils'
+import { generatePoints, getRandomColor, middlePoint, map, distance2D } from './src/utils'
+import { noise, simple_lambert_vertex } from './libs/MyShaderChunks';
+
+THREE.ShaderChunk.simple_lambert_vertex  = simple_lambert_vertex;
+THREE.ShaderChunk.noise = noise;
 
 function addMesh(geometry, material) {
   const mesh = new THREE.Mesh(geometry, material);
@@ -14,87 +19,94 @@ function addMesh(geometry, material) {
 }
 
 const { camera, clock, scene, renderer } = setupScene(animation);
-const axesHelper = new THREE.AxesHelper( 5 );
-// The X axis is red. The Y axis is green. The Z axis is blue.
-scene.add( axesHelper );
 
-const geometry = new THREE.BoxGeometry(3,3,1 );
-const material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
+const simplex = new SimplexNoise();
 
-// const plane = new THREE.BoxGeometry(planeSize,planeSize,1);
-// const planeMesh = addMesh(plane, shaderMaterial)
-// planeMesh.rotation.x = Math.PI/2
-// planeMesh.position.set(0,5,0)
-
-// createGui(a, camera);
-
-let points = generatePoints(4);
-
-// uniforms.u_points = { value: new Float32Array(points.map(d => d[0]).concat(points.map(d => d[1]))) };
-// console.log(points)
-// console.log(uniforms.u_points.value)
-
-let circles=[]
-points.forEach(p => {
-	let c = addMesh(new THREE.BoxGeometry(0.4,0.4,0.4),material)
-	c.position.set(p[0],0,p[1]);
-	circles.push(c);
-});
-
+let points = generatePoints(3);
 const delaunay = Delaunay.from(points);
-const voronoi = delaunay.voronoi([-planeSize/2, -planeSize/2, planeSize/2, planeSize/2])
+const voronoi = delaunay.voronoi([-planeSize, -planeSize, planeSize, planeSize])
 
 let polygonObjects = []
-for(let i=0;i<points.length;i++) {
-	// polygonObjects.push(voronoi.cellPolygon(i))
-	let group = [];
-	(voronoi.cellPolygon(i)).forEach(vertex => {
-		group.push(new THREE.Vector3(vertex[0], 0, vertex[1]));
+for(let i=0; i<points.length; i++) {
+	let triangleShape = new THREE.Shape();
+	triangleShape.moveTo(voronoi.cellPolygon(i)[0][0], voronoi.cellPolygon(i)[0][1]);
+
+	(voronoi.cellPolygon(i)).forEach((vertex, i) => {
+		if(i) triangleShape.lineTo(vertex[0], vertex[1]);
 	});
-	let geom = new THREE.ShapeBufferGeometry(new THREE.Shape(group));
-	console.log(group)
-	polygonObjects.push(addMesh(geom, material));
+
+	let extrudedGeometry = new THREE.ExtrudeGeometry(triangleShape, {steps:0, depth: 1, bevelEnabled: false});
+  let polyMaterial;
+	if(i%2) polyMaterial = new THREE.MeshLambertMaterial( { color: getRandomColor() } );
+	else polyMaterial = shaderMaterial;
+
+	polygonObjects.push(addMesh(extrudedGeometry, polyMaterial));
+	polygonObjects[i].rotation.x = Math.PI/2;
+	if(i%2) polygonObjects[i].position.set(0,6,0)
+	else polygonObjects[i].position.set(0,5,0)
 }
 
-console.log(polygonObjects)
-// polygonObjects.forEach(polygon => {
-
-// });
+let treeLength = 35;
+let treeY = -10;
 
 
-
-
-// for(i=0;i<p.length;i++) {
-// 	c1=p[i][0]
-// 	c2=p[i][1]
-// 	poin=[]
-// 	for (let vt of voronoi.cellPolygon(i)) {
-// 		// vertex(vt[0], vt[1]);
-// 		poin.push(middlePoint(c1,c2,vt[0],vt[1])[0], middlePoint(c1,c2,vt[0],vt[1])[1])
-// 		circle(m(c1,c2,vt[0],vt[1])[0], m(c1,c2,vt[0],vt[1])[1], 50)
-// 	}
-// 	polygonPoints.push(poin)
-// 	// endShape(CLOSE);
-// 	circle(c1, c2, 1)
-// }
-
-// for(i=0;i<polygonPoints.length;i++) {
-// 	for(j=0;j<polygonPoints[i].length;j+=2) {
-// 		vertex(polygonPoints[i][j], polygonPoints[i][j+1])
-// 	}
-// }
-
-
-document.body.appendChild( renderer.domElement );
-
-window.addEventListener('resize', () => {
-	camera.aspect = window.innerWidth / window.innerHeight;
-	camera.updateProjectionMatrix();
-	renderer.setSize( window.innerWidth, window.innerHeight );
+let circlesGeo = new THREE.CylinderGeometry( 0.1, 1.2, treeLength, 6 );
+const lambertMat = new THREE.MeshLambertMaterial({ color: 0x8B4513, flatShading: true });
+let circles=[]
+points.forEach((p,i) => {
+	circles.push(addMesh(circlesGeo,lambertMat));
+	circles[i].position.set(p[0],treeY,p[1])
 });
 
-
 function animation( time ) {
+	points.forEach((p,i) => {
+		points[i][0] += Math.sin(time/1000)*0.02 + simplex.noise2D(p[0], p[1])*0.02;
+		points[i][1] += Math.cos(time/1000)*0.02 + simplex.noise2D(p[0], p[1])*0.02;
+
+		polygonObjects[i].geometry.dispose();
+	});
+
+	const delaunay = Delaunay.from(points);
+	const voronoi = delaunay.voronoi([-window.innerWidth/2, -window.innerHeight/2, +window.innerWidth/2, +window.innerHeight/2])
+
+	points.forEach((p,i) => {
+		let triangleShape = new THREE.Shape();
+		let c1 = p[0]
+    let c2 = p[1]
+		let x = voronoi.cellPolygon(i)[0][0];
+		let y = voronoi.cellPolygon(i)[0][1];
+		let middle = middlePoint(c1,c2,x,y);
+		x = middle[0];
+		y = middle[1];
+		triangleShape.moveTo(x, y);
+		(voronoi.cellPolygon(i)).forEach((vertex, i) => {
+			if(i)
+			triangleShape.lineTo(middlePoint(c1,c2,vertex[0],vertex[1])[0], middlePoint(c1,c2,vertex[0],vertex[1])[1])
+			// triangleShape.lineTo(vertex[0], vertex[1]);
+		});
+
+		let extrudedGeometry = new THREE.ExtrudeGeometry(triangleShape, {
+			steps: 1,
+			depth: 1,
+			bevelThickness: 3,
+			bevelSize: 1,
+			bevelOffset: -1,
+			bevelEnabled: true
+		});
+		polygonObjects[i].geometry = extrudedGeometry;
+
+		circles[i].position.set(p[0],treeY,p[1])
+
+	});
+
+
 	uniforms.u_time.value += clock.getDelta();
+
+	// setTimeout( function() {
+
+	// 		requestAnimationFrame( animation );
+
+	// }, 1000 / 30 );
+
 	renderer.render( scene, camera );
 }

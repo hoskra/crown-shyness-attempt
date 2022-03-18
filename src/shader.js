@@ -1,17 +1,34 @@
-export const vshader = `
-uniform vec2 u_resolution;
 
-varying vec3 vUv;
+export const vshader = `
+#include <noise>
+#define EULER 2.718281828459045
+uniform vec2 u_resolution;
+varying vec3 vPosition;
+varying vec2 vUv;
+uniform float u_time;
+
+varying vec3 vNormal;
+
+
 
 void main() {
-  vUv = position;
+  vUv = uv;
+  vPosition = position;
+  vNormal = normal;
 
   vec4 modelViewPosition = modelViewMatrix * vec4(position, 1.0);
   gl_Position = projectionMatrix * modelViewPosition;
+
+  float n = cnoise( vPosition );
+  gl_Position.x += n;
+  gl_Position.y += n;
+
 }
 `
 
 export const fshader = `
+#include <noise>
+
 #define PI2 6.28318530718
 uniform vec2 u_mouse;
 uniform vec2 u_resolution;
@@ -19,18 +36,29 @@ uniform float u_time;
 uniform vec3 u_color_a;
 uniform vec3 u_color_b;
 
+varying vec3 vPosition;
 uniform vec2 u_points[9];
 
-varying vec3 vUv;
-varying vec2 uv;
+varying vec3 vNormal;
 
+varying vec2 vUv;
+
+varying vec3 vMVP;
 
 void main() {
-  vec2 uv = gl_FragColor.xy/u_resolution;
+  vec2 uv = gl_FragColor.xy/u_resolution.xy;
+  uv.x *= u_resolution.x/u_resolution.y;
 
-  vec3 col = mix(u_color_a, cos(u_time)*u_color_b, vUv.z);
+  float n = cnoise( vPosition );
 
-  gl_FragColor = vec4(vUv.x, col.xy, 1.0);
+  gl_FragColor = vec4(uv.x, vUv.y, 1.0 *  cos(u_time), 1.0);
+  gl_FragColor.x += n + 0.5;
+  gl_FragColor.a -= n + 0.5;
+
+  float x = mod(u_time + gl_FragCoord.x, 20.) < 10. ? 1. : 0.;
+  float y = mod(u_time + gl_FragCoord.y, 20.) < 10. ? 1. : 0.;
+  // gl_FragColor = vec4(vec3(min(x, y)), 1.);
+
 }
 `
 

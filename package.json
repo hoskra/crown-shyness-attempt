@@ -10,6 +10,7 @@
   "dependencies": {
     "d3-delaunay": "^6.0.2",
     "dat.gui": "^0.7.9",
+    "simplex-noise": "^3.0.1",
     "three": "^0.125.2"
   }
 }

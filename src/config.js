@@ -1,1 +1,1 @@
-export const planeSize = 20;
+export const planeSize = 30;
