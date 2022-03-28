@@ -1,11 +1,11 @@
-import { planeSize } from "./config";
-// import { noise } from "../libs/perlin";
-
-// noise.seed(Math.random());
+import * as THREE from 'three'
+import { planeSizeCoeficient } from "./config";
 
 export function randomBetween(min, max) { return Math.random() * (max - min) + min; }
 export function generatePoints(side) {
   let points = [];
+  let planeSize = planeSizeCoeficient*window.innerWidth/2;
+  // let planeSize = 20;
   let half = planeSize/2;
   let cnt = side - 1;
   let step = planeSize/cnt;
@@ -43,6 +43,34 @@ export function getRandomColor() {
 	return color;
 }
 
-export function middlePoint(x1,y1,x2,y2) {
-  return [x1+(x2-x1)*0.8, y1+(y2-y1)*0.8]
+export function middlePoint(x1,y1,x2,y2, distance = 0.8) {
+  return [x1+(x2-x1)*distance, y1+(y2-y1)*distance]
+}
+
+export function addMesh(scene, geometry, material) {
+  const mesh = new THREE.Mesh(geometry, material);
+  scene.add(mesh);
+  return mesh;
+}
+
+export function reducePoints(array, distances, y) {
+  if(array.length == 2) {
+    array.push({x: array[0].x*1.1, y: -y*0.35, z: 0.9*array[0].z});
+    array.push({x: array[1].x*1.1, y: -y*0.35, z: 0.9*array[1].z});
+  } else if(array.length == 3) {
+    array.push({
+      x: (array[distances[0].index].x + array[distances[1].index].x)/2,
+      y: -y*0.35,
+      z: (array[distances[0].index].z + array[distances[1].index].z)/2});
+  } else if(array.length > 4) {
+    distances.sort ((a,b) => {return b.distance - a.distance;});
+    let temp = [
+      array[distances[0].index],
+      array[distances[1].index],
+      array[distances[2].index],
+      array[distances[3].index]
+    ]
+    array = temp;
+  }
+  return array;
 }
