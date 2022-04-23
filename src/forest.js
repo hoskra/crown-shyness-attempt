@@ -59,8 +59,8 @@ class Tree {
       }
     });
 
-    leaves = reducePoints(leaves, distances, this.treeY);
-    if(update) this.updateBranches(leaves)
+    // leaves = reducePoints(leaves, distances, this.treeY);
+    // if(update) this.updateBranches(leaves)
 
 
     let extrudedGeometry = new THREE.ExtrudeGeometry(triangleShape, extrudingOptions);
@@ -72,10 +72,10 @@ class Tree {
   }
 
   updateBranches(leaves) {
-    this.leaf0.setCoordinates(leaves[0].x, leaves[0].y, leaves[0].z);
-    this.leaf1.setCoordinates(leaves[1].x, leaves[1].y, leaves[1].z);
-    this.leaf2.setCoordinates(leaves[2].x, leaves[2].y, leaves[2].z);
-    this.leaf3.setCoordinates(leaves[3].x, leaves[3].y, leaves[3].z);
+    // this.leaf0.setCoordinates(leaves[0].x, leaves[0].y, leaves[0].z);
+    // this.leaf1.setCoordinates(leaves[1].x, leaves[1].y, leaves[1].z);
+    // this.leaf2.setCoordinates(leaves[2].x, leaves[2].y, leaves[2].z);
+    // this.leaf3.setCoordinates(leaves[3].x, leaves[3].y, leaves[3].z);
   }
 
   updateLeaves(deltaX, deltaZ) {
@@ -119,7 +119,7 @@ export class Forest {
       let deltaZ = Math.cos(time/1000)*0.02 + this.simplex.noise2D(p[0], p[1])*0.02;
       p[1] += deltaZ;
       this._trees[i].disposeGeometries();
-      this._trees[i].updateLeaves(deltaX, deltaZ);
+      // this._trees[i].updateLeaves(deltaX, deltaZ);
     });
 
     // recompute voronoi
@@ -138,13 +138,13 @@ export class Forest {
 
       let tree = new Tree();
       this._trees.push(tree);
-      this._trees[i].createBranches(scene)
+      // this._trees[i].createBranches(scene)
 
       let geo = tree.updateCrownGeometry(this.points[i], this.voronoi.cellPolygon(i), true)
 
-      let polyMaterial;
-      if(i%2) { polyMaterial = new THREE.MeshLambertMaterial( { color: getRandomColor() } );
-      } else { polyMaterial = shaderMaterial;}
+      let polyMaterial = new THREE.MeshLambertMaterial( { color: getRandomColor() } );
+      // if(i%2) { polyMaterial = new THREE.MeshLambertMaterial( { color: getRandomColor() } );
+      // } else { polyMaterial = shaderMaterial;}
 
       tree.crown = addMesh(scene, geo, polyMaterial);
       tree.crown.rotation.x = Math.PI/2;
